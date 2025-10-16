@@ -1,7 +1,8 @@
 import inspect
-import os
 import logging
-from config import PATH_TO_LOG, PATH
+import os
+
+from config import PATH, PATH_TO_LOG
 
 
 def get_logger():
@@ -10,7 +11,9 @@ def get_logger():
     logger.setLevel(logging.INFO)
 
     # Формат сообщений
-    formatter = logging.Formatter('%(filename)s - %(asctime)s - %(name)s - %(levelname)s - %(message)s - %(funcName)s')
+    formatter = logging.Formatter(
+        "%(filename)s - %(asctime)s - %(name)s - %(levelname)s - %(message)s - %(funcName)s"
+    )
 
     # # 1. ХЕНДЛЕР ДЛЯ КОНСОЛИ
     # console_handler = logging.StreamHandler()
@@ -21,17 +24,16 @@ def get_logger():
     root_dir = PATH
     log_dir = PATH_TO_LOG
 
-
-    os.makedirs(log_dir,exist_ok=True)
+    os.makedirs(log_dir, exist_ok=True)
 
     log_name = os.path.splitext(os.path.basename(inspect.stack()[1].filename))[0]
 
     # хендлер для записи логов в отдельные файлы
-    file_handler = logging.FileHandler(f"{log_dir}/{log_name}.log", encoding='utf-8')
+    file_handler = logging.FileHandler(f"{log_dir}/{log_name}.log", encoding="utf-8")
     file_handler.setFormatter(formatter)
 
     # хендлер для записи в общий лог
-    general_file_handler = logging.FileHandler(f"{root_dir}/log/общий.log",encoding="utf-8")
+    general_file_handler = logging.FileHandler(f"{root_dir}/log/общий.log", encoding="utf-8")
     general_file_handler.setFormatter(formatter)
 
     # Добавляем оба хендлера
@@ -48,9 +50,11 @@ def dec_get_logger(fun):
     :param fun:
     :return:
     """
-    def wrapper(*args,**kwargs):
+
+    def wrapper(*args, **kwargs):
         logger = get_logger()
         # Вставляем logger в глобальную область видимости функции
-        kwargs['logger'] = logger
-        return fun(*args,**kwargs)
+        kwargs["logger"] = logger
+        return fun(*args, **kwargs)
+
     return wrapper
