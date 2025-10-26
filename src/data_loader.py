@@ -6,6 +6,16 @@ from develop_fun.get_logger import get_logger
 
 
 def input_date():
+    """
+        Запрашивает у пользователя дату и время в формате "дд.мм.гггг чч:мм:сс".
+
+    Пользователь может ввести дату вручную. Если ввод некорректен или оставлен пустым,
+    будет использована дата по умолчанию "15.11.2021 04:57:31".
+
+    :return: Объект datetime, если пользователь ввел корректную дату,
+             иначе строка с датой по умолчанию.
+    :return:
+    """
     answer = input(
         "Введите готовую дату в формате:%d.%m.%Y %H:%M:%S\nИли по умолчанию будет выбрана дата:\n"
         "15.11.2021 04:57:31\nВвод:"
@@ -108,14 +118,3 @@ def top_5_transactions(df):
     }
 
     return result
-
-
-# operations = read_excel(PATH_TO_OPERATION)
-# operations = operations[['Дата операции','Описание', 'Сумма платежа']]
-# operations_list = operations.to_dict('records') # список словарей
-# operations_json = json.dumps(operations_list, ensure_ascii=False, indent= 4)
-# print(operations_json)
-# print(type(operations_json))
-
-# res = get_operation_with_range(operation_df=read_excel(PATH_TO_OPERATION) , date_end='23.12.2021 02:34:12' )
-# print(type(get_cards_num_and_sum(operation_df=res)))
