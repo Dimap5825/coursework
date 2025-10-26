@@ -1,139 +1,77 @@
-import json
-import os
-import sys
-from datetime import datetime, timedelta
-
-import pandas as pd
 import pytest
+import pandas as pd
+from unittest.mock import mock_open, patch
+from src.reports import spending_by_category, save_report
+import datetime
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# -------------------- Фикстуры --------------------
+@pytest.fixture
+def sample_transactions():
+    """Возвращает тестовый DataFrame с транзакциями"""
+    return pd.DataFrame({
+        "category": ["food", "transport", "food", "entertainment"],
+        "amount": [100, 50, 200, 150],
+        "date": ["2024-01-15", "2024-01-20", "2024-02-10", "2024-02-15"]
+    })
 
-from reports import save_report, spending_by_category
+@pytest.fixture
+def fixed_today():
+    """Фиксируем сегодняшнюю дату для тестов без передачи даты"""
+    class FixedDate(datetime.date):
+        @classmethod
+        def today(cls):
+            return cls(2024, 3, 1)
+    return FixedDate
 
+# -------------------- Параметризированные тесты spending_by_category --------------------
+@pytest.mark.parametrize("category,expected_total", [
+    ("food", 300),
+    ("transport", 50),
+    ("entertainment", 150),
+    ("nonexistent", 0),
+])
+def test_spending_by_category_totals(sample_transactions, category, expected_total):
+    """Проверка правильности подсчета total по категории с передачей даты"""
+    result = spending_by_category(sample_transactions, category, "2024-03-01")
+    assert isinstance(result, dict)
+    assert result["category"] == category
+    assert result["total"] == expected_total
 
-class TestSpendingByCategory:
-    """Тесты для функции spending_by_category"""
+def test_spending_by_category_without_date(sample_transactions, fixed_today):
+    """Проверка работы функции без указания даты с замоком today"""
+    with patch("src.reports.datetime.date", fixed_today):
+        result = spending_by_category(sample_transactions, "food")
+    assert isinstance(result, dict)
+    assert result["category"] == "food"
+    # Сумма food за последние 3 месяца относительно 2024-03-01
+    expected_total = 100 + 200
+    assert result["total"] == expected_total
 
-    def test_spending_by_category_exists(self):
-        """Тест что функция существует"""
-        assert callable(spending_by_category)
+# -------------------- Тестирование save_report --------------------
+@pytest.mark.parametrize("return_value", [
+    ({"a": 1}),
+    (pd.DataFrame({"col": [1, 2, 3]}))
+])
+def test_save_report_mock(return_value):
+    """Тест декоратора save_report с разными типами данных и mock open"""
+    m = mock_open()
+    with patch("builtins.open", m):
+        if isinstance(return_value, pd.DataFrame):
+            @save_report("test.json")
+            def dummy_func():
+                return return_value
+        else:
+            @save_report
+            def dummy_func():
+                return return_value
 
-    def test_spending_by_category_returns_dataframe(self):
-        """Тест что функция возвращает DataFrame"""
-        # Создаем тестовые данные
-        test_data = pd.DataFrame(
-            {
-                "category": ["food", "transport", "food", "entertainment"],
-                "amount": [100, 50, 200, 150],
-                "date": ["2024-01-15", "2024-01-20", "2024-02-10", "2024-02-15"],
-            }
-        )
-
-        result = spending_by_category(test_data, "food", "2024-03-01")
-        assert isinstance(result, pd.DataFrame)
-
-    def test_spending_by_category_correct_sum(self):
-        """Тест правильного подсчета суммы"""
-        test_data = pd.DataFrame(
-            {
-                "category": ["food", "transport", "food", "food"],
-                "amount": [100, 50, 200, 300],
-                "date": ["2024-01-15", "2024-01-20", "2024-02-10", "2024-02-20"],
-            }
-        )
-
-        result = spending_by_category(test_data, "food", "2024-03-01")
-
-        # Проверяем что сумма правильная
-        assert len(result) == 1
-        assert result.iloc[0]["category"] == "food"
-        assert result.iloc[0]["amount"] == 600  # 100 + 200 + 300
-
-    def test_spending_by_category_no_data(self):
-        """Тест когда нет данных по категории"""
-        test_data = pd.DataFrame(
-            {
-                "category": ["transport", "entertainment"],
-                "amount": [50, 150],
-                "date": ["2024-01-15", "2024-01-20"],
-            }
-        )
-
-        result = spending_by_category(test_data, "food", "2024-03-01")
-
-        # Должен вернуть пустой DataFrame с правильными колонками
-        assert isinstance(result, pd.DataFrame)
-        assert len(result) == 0
-        assert "category" in result.columns
-        assert "amount" in result.columns
-
-    def test_spending_by_category_without_date(self):
-        """Тест без указания даты"""
-        test_data = pd.DataFrame(
-            {
-                "category": ["food", "food"],
-                "amount": [100, 200],
-                "date": ["2024-01-15", "2024-01-20"],
-            }
-        )
-
-        # Должен работать без даты
-        result = spending_by_category(test_data, "food")
-        assert isinstance(result, pd.DataFrame)
-
-
-class TestSaveReport:
-    """Тесты для декоратора save_report"""
-
-    def test_save_report_exists(self):
-        """Тест что декоратор существует"""
-        assert callable(save_report)
-
-    def test_save_report_without_parameters(self):
-        """Тест декоратора без параметров"""
-
-        @save_report
-        def test_function():
-            return {"test": "data"}
-
-        result = test_function()
-        assert result == {"test": "data"}
-
-    def test_save_report_with_filename(self):
-        """Тест декоратора с именем файла"""
-
-        @save_report("test_report.json")
-        def test_function():
-            return pd.DataFrame({"col": [1, 2, 3]})
-
-        result = test_function()
-        assert isinstance(result, pd.DataFrame)
-
-    def test_save_report_with_empty_parentheses(self):
-        """Тест декоратора с пустыми скобками"""
-
-        @save_report()
-        def test_function():
-            return [1, 2, 3]
-
-        result = test_function()
-        assert result == [1, 2, 3]
-
-
-if __name__ == "__main__":
-    # Тесты для spending_by_category
-    test_category = TestSpendingByCategory()
-    test_category.test_spending_by_category_exists()
-    test_category.test_spending_by_category_returns_dataframe()
-    test_category.test_spending_by_category_correct_sum()
-    test_category.test_spending_by_category_no_data()
-    test_category.test_spending_by_category_without_date()
-
-    # Тесты для save_report
-    test_report = TestSaveReport()
-    test_report.test_save_report_exists()
-    test_report.test_save_report_without_parameters()
-    test_report.test_save_report_with_filename()
-    test_report.test_save_report_with_empty_parentheses()
-
-    print("✅ Все тесты reports пройдены")
+        result = dummy_func()
+        # Проверка типа результата
+        if isinstance(return_value, pd.DataFrame):
+            assert isinstance(result, pd.DataFrame)
+        else:
+            assert result == return_value
+        # Проверяем, что write был вызван
+        m.assert_called()
+        handle = m()
+        handle.write.assert_called()

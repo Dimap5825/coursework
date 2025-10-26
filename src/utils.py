@@ -111,6 +111,3 @@ def get_stock_prices():
 
     result["stock_prices"] = action_list
     return result
-
-
-# print(get_stock_prices())
